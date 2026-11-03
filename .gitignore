@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+.local-state/
+repositories/
+drafts/
+config.json
+.env
+.env.*
+.netrc
+.ssh/
+*.pem
+*.key
+*.log
+.DS_Store

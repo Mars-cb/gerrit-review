@@ -1,0 +1,10 @@
+{
+  "name": "gerrit-review-local",
+  "interface": {"displayName": "本机 Gerrit 审查工具"},
+  "plugins": [{
+    "name": "gerrit-review",
+    "source": {"source": "local", "path": "./plugins/gerrit-review"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Developer Tools"
+  }]
+}

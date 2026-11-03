@@ -1,0 +1,12 @@
+{
+  "default_server": "company",
+  "servers": {
+    "company": {
+      "web_url": "https://gerrit.example.com",
+      "ssh_host": "gerrit.example.com",
+      "ssh_port": 29418,
+      "ssh_user": "your-user",
+      "allow_publish": false
+    }
+  }
+}

@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag; leave empty to use the plugin manifest version'
+        required: false
+        type: string
+      draft:
+        description: 'Create a draft instead of publishing immediately'
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.13'
+      - name: Validate version and build packages
+        id: package
+        env:
+          REQUESTED_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        run: python scripts/package_release.py --tag "$REQUESTED_TAG" --github-output "$GITHUB_OUTPUT"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ steps.package.outputs.tag }}
+          CREATE_DRAFT: ${{ inputs.draft || false }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          options=()
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            tag_commit=$(git rev-list -n 1 "$RELEASE_TAG")
+            if [ "$tag_commit" != "$GITHUB_SHA" ]; then
+              echo "Release tag points to a different commit; refusing to replace it."
+              exit 1
+            fi
+            options+=(--verify-tag)
+          fi
+          if [ "$CREATE_DRAFT" = "true" ]; then
+            options+=(--draft)
+          fi
+          gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS \
+            --target "$GITHUB_SHA" \
+            --title "Gerrit Review $RELEASE_TAG" \
+            --generate-notes \
+            "${options[@]}"

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gerrit-review",
+  "version": "0.1.0",
+  "description": "使用现有 SSH 认证读取 Gerrit 补丁集和完整代码上下文，供 Codex 审查，并按明确授权发布已预览的评论。",
+  "author": {
+    "name": "Mars-cb",
+    "url": "https://github.com/Mars-cb"
+  },
+  "license": "MIT",
+  "keywords": [
+    "gerrit",
+    "code-review",
+    "ssh"
+  ],
+  "extensions": {
+    "com.openai": {
+      "requires_local_executor": true,
+      "interface": {
+        "displayName": "Gerrit 代码审查",
+        "shortDescription": "通过变更链接审查 Gerrit 补丁集",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "composerIcon": "./assets/icon.svg",
+        "logo": "./assets/icon.svg",
+        "defaultPrompt": [
+          "审查这条 Gerrit 变更：",
+          "查看这条 Gerrit 变更的最新补丁集和已有评论"
+        ],
+        "developerName": "Mars-cb"
+      }
+    }
+  },
+  "homepage": "https://github.com/Mars-cb/gerrit-review",
+  "repository": "https://github.com/Mars-cb/gerrit-review"
+}
