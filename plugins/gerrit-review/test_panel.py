@@ -66,9 +66,14 @@ class AppTests(unittest.TestCase):
         self.assertEqual(content["mimeType"], panel.MIME)
         self.assertIn("ui/initialize", content["text"])
         self.assertNotIn("/*PANEL_CODE*/", content["text"])
+        self.assertNotIn('rpc("ui/message"', content["text"])
+        self.assertNotIn('navigator.clipboard', content["text"])
+        self.assertIn('id="session-compose"', content["text"])
         meta = server.tools()[0]["_meta"]
         self.assertEqual(meta["ui"]["resourceUri"], panel.URI)
         self.assertEqual(meta["openai/ui"]["entrypoints"], [{"type": "thread"}, {"type": "global"}])
+        for tool in server.tools()[1:4]:
+            self.assertEqual(tool["_meta"]["ui"]["visibility"], ["app"])
         with patch.object(panel, "load_config", side_effect=GerritError("NOT_CONFIGURED", "Configure first")):
             self.assertFalse(server.call("gerrit_open_panel", {})["isError"])
 

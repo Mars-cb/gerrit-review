@@ -15,9 +15,11 @@ python3 server.py call gerrit_connection_status
 
 客户端安装此插件后，新聊天中选择“Gerrit 代码审查”，粘贴变更链接。模型使用固定 revision 读取差异、文件、调用者、测试和已有评论，审查结论显示在聊天与独立面板中。
 
-支持 MCP Apps Extensions 的 Codex 中可从侧栏/聊天内容标签打开“Gerrit 审查面板”，或让 Codex 调用 `gerrit_open_panel`。面板支持补丁集、文件差异、完整新/旧源码、已有讨论和绑定固定版本的本机结果。点击“让 Codex 审查”发送请求到聊天。
+支持 MCP Apps Extensions 的 Codex 中可从侧栏/聊天内容标签打开“Gerrit 审查面板”。面板打开后连接插件自己的专用 Codex 会话，已有会话直接复用。点击“在面板中审查”或用面板输入框发送要求、继续追问；公开回复和读取工具进度实时显示在面板中，不向当前聊天发送消息，不创建首页聊天。
 
-本机浏览器备用入口：`python3 server.py panel`。打开命令打印的 URL，点击“复制审查指令”后粘贴到 Codex 聊天发送。按 Ctrl-C 停止，仅监听 127.0.0.1；不加载外部资源、没有发布端点。若 MCP 使用 PLUGIN_DATA 或自定义目录，需将浏览器服务的 GERRIT_REVIEW_STATE 指向相同目录。
+本机浏览器入口：`python3 server.py panel`，打开命令打印的 URL，即可在相同会话内审查和追问。按 Ctrl-C 停止 HTTP 服务，后台会话保留；`python3 server.py session-stop` 可停止会话服务。系统/服务重启后保留本机记录，并以近期记录继续新的内存线程。
+
+需要本机已登录的 Codex App Server；默认使用当前 Codex 模型配置及用量。找不到可执行文件时设置 GERRIT_REVIEW_CODEX 为完整路径。仅提供 Gerrit 读取和本机结论保存工具；专用会话不运行 shell、不发布 Gerrit 评论。HTTP 仅监听 127.0.0.1；若 MCP 使用 PLUGIN_DATA 或自定义目录，将浏览器服务的 GERRIT_REVIEW_STATE 指向相同目录以复用会话。
 
 默认不发布评论。需要发布时，由用户通过 configure 的 --enable-publishing 参数启用，并明确要求向具体变更发布预览内容。发布工具不打分、不合并、不发送通知邮件。
 

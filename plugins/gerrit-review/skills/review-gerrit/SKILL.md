@@ -11,9 +11,11 @@ Use the tools bundled with this plugin for Gerrit links and change numbers. This
 
 When the user asks to open the Gerrit panel, call `gerrit_open_panel`. It accepts empty arguments; optionally pass a change link and configured server name. Its MCP App provides global and thread entrypoints, patch-set selection, file diffs, source, existing discussion and local findings.
 
-When a review is requested from the panel, honor its exact server, change and full revision. After giving findings in chat, call `gerrit_save_findings` with the same target, a summary including verification limits, and verified findings (`priority` 0–3, `title`, relative `path`, real `line`, `description`, optional `side=REVISION|PARENT`). Use an empty findings array when no actionable issues were found. The panel polls this private local result; saving it does not publish to Gerrit. Never invent findings to populate the panel. Saving an older patch set is allowed and remains bound to that revision.
+The panel owns an ephemeral Codex App Server thread. Opening it connects to the existing account-scoped conversation or creates one if none is alive. Messages, public assistant updates, read-tool progress, stopping and follow-up input stay in that panel. Never use `ui/message`, create a desktop/homepage chat, or send a message to the user's current chat to run a panel review.
 
-The optional loopback browser panel uses the same interface and copies a review instruction for the user to send in Codex. It does not start a second model or expose a Gerrit write endpoint. If the host does not display the native entrypoint, explain the browser fallback documented in README.
+When running in the dedicated panel conversation, honor the exact server, change and full revision supplied for each request. Stream concise public progress while reading and verifying code. After reporting findings in this conversation, call `gerrit_save_findings` with the same target, a summary including verification limits, and verified findings (`priority` 0–3, `title`, relative `path`, real `line`, `description`, optional `side=REVISION|PARENT`). Use an empty findings array when no actionable issues were found. Do not invent findings to populate the panel. The panel runtime supplies only read tools and local findings storage; it cannot publish to Gerrit or execute repository code.
+
+The loopback browser panel connects to the same private conversation service and streams the same messages. It does not copy prompts to another chat. If the native entrypoint is unavailable, use the documented browser entrypoint. Model inference starts only when the user sends a message or requests review in the panel.
 
 ## Read and review
 

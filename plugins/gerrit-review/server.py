@@ -6,6 +6,7 @@ import sys
 
 import findings
 import panel
+import review_session
 from gerrit import Client, GerritError, VERSION, atomic_json, config_path, load_config, validate_profile
 
 
@@ -35,6 +36,11 @@ def tools():
                       "message": {"type": "string", "minLength": 1, "maxLength": 10000}}, ["path", "line", "message"])
     definitions = [
         define("open_panel", "打开独立 Gerrit 审查面板。可浏览补丁集、文件差异、已有评论和本机审查结果。空参数可从侧栏直接打开。", {"change": CHANGE}),
+        define("review_session", "读取或连接面板专用会话；已有会话会复用，不创建首页聊天，不启动模型回复。仅供面板调用。", {"cursor": ranged(0, 1000000000, 0)}),
+        define("send_review", "在面板专用会话发送消息，流式内容留在面板中。仅供用户点击发送后调用，不使用宿主聊天。", {
+            "message": {"type": "string", "minLength": 1, "maxLength": 20000},
+            "request_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"}, "change": CHANGE, "revision": REVISION}, ["message", "request_id"], read=False),
+        define("interrupt_review", "停止面板专用会话的当前回复，保留会话及已有内容。仅供用户点击停止后调用。", {}, read=False),
         define("connection_status", "只读检查配置的 Gerrit SSH 连接、版本和发布是否启用。不输入密码、不修改 SSH 配置。", {}),
         define("get_change", "读取 Gerrit 变更及指定补丁集的元数据、文件列表、提交说明和固定 revision；链接可带补丁集编号。后续读取必须使用返回的 revision。", {"change": CHANGE}, ["change"]),
         define("get_diff", "读取固定补丁集对父提交的 unified diff。支持限定文件和分页。diff 文本分页位置不是源码行号。", dict(context, path=STRING,
@@ -66,6 +72,9 @@ def tools():
         "ui": {"resourceUri": panel.URI, "visibility": ["model", "app"]},
         "openai/ui": {"entrypoints": [{"type": "thread"}, {"type": "global"}]},
         "openai/outputTemplate": panel.URI, "openai/widgetAccessible": True}})
+    for definition in definitions[1:4]:
+        definition["_meta"] = {"ui": {"visibility": ["app"]}}
+    definitions[1]["annotations"]["openWorldHint"] = False
     return definitions
 
 
@@ -73,6 +82,7 @@ METHODS = {"gerrit_connection_status": "status", "gerrit_get_change": "change", 
            "gerrit_get_file": "content", "gerrit_search_code": "search", "gerrit_get_comments": "comments",
            "gerrit_prepare_review": "prepare", "gerrit_publish_review": "publish",
            "gerrit_open_panel": None, "gerrit_save_findings": None, "gerrit_get_findings": None}
+METHODS.update({"gerrit_review_session": None, "gerrit_send_review": None, "gerrit_interrupt_review": None})
 
 
 def call(name, arguments):
@@ -95,7 +105,10 @@ def call(name, arguments):
             data = panel.bootstrap(server=selected, **arguments)
         else:
             client = Client(selected)
-            if name == "gerrit_save_findings":
+            if name in ("gerrit_review_session", "gerrit_send_review", "gerrit_interrupt_review"):
+                operation = {"gerrit_review_session": "get", "gerrit_send_review": "send", "gerrit_interrupt_review": "interrupt"}[name]
+                data = review_session.request(client, operation, **arguments)
+            elif name == "gerrit_save_findings":
                 data = findings.save(client, **arguments)
             elif name == "gerrit_get_findings":
                 data = findings.get(client, **arguments)
@@ -184,6 +197,8 @@ def main():
     view = commands.add_parser("panel", help="Open the independent loopback browser panel (Ctrl-C to stop)")
     view.add_argument("--port", type=int, default=0)
     view.add_argument("--change")
+    stop = commands.add_parser("session-stop", help="Stop this server profile's private panel conversation service")
+    stop.add_argument("--server")
     args = parser.parse_args()
     if args.command == "configure":
         print(json.dumps(configure(args), ensure_ascii=False, indent=2))
@@ -195,6 +210,8 @@ def main():
         print(json.dumps({"tools": tools()}, ensure_ascii=False, indent=2))
     elif args.command == "panel":
         panel.run(call, args.port, args.change)
+    elif args.command == "session-stop":
+        print(json.dumps(review_session.request(Client(args.server), "shutdown")))
     else:
         serve()
     return 0

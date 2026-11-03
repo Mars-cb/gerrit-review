@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PLUGIN = ROOT / "plugins/gerrit-review"
 PLUGIN_FILES = (
     "plugin.json", "mcp.json", "README.md", "LICENSE", "config.example.json",
-    "gerrit.py", "server.py", "findings.py", "panel.py", "test_gerrit.py", "test_panel.py", "assets/icon.svg",
+    "gerrit.py", "server.py", "findings.py", "panel.py", "review_session.py", "test_gerrit.py", "test_panel.py", "test_session.py", "assets/icon.svg",
     "web/panel.html", "web/panel.js", "web/test_panel.cjs",
     "skills/review-gerrit/SKILL.md",
 )

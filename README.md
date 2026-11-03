@@ -6,7 +6,7 @@
 
 ## 依赖与安装
 
-需要 Linux/macOS、本机 Python 3.7+、Git、OpenSSH 和可访问 Gerrit 的现有 SSH 认证。仅使用 Python 标准库，无需 pip 安装依赖。Windows 原生运行暂未验证（文件锁使用 POSIX `fcntl`）。
+需要 Linux/macOS、本机 Codex CLI/App Server（已登录）、Python 3.7+、Git、OpenSSH 和可访问 Gerrit 的现有 SSH 认证。仅使用 Python 标准库，无需 pip 安装依赖。Windows 原生运行暂未验证（文件锁使用 POSIX `fcntl`）。
 
 从 GitHub 安装：
 
@@ -66,8 +66,9 @@ python3 plugins/gerrit-review/server.py call gerrit_get_change --args '{"change"
 1. 选择已配置的服务器，输入变更链接或编号，点击“载入变更”。
 2. 切换补丁集、筛选文件；在“差异”和“完整文件”之间切换。完整文件支持补丁版本与父版本，删除文件可选父版本。
 3. “已有讨论”读取 Gerrit 历史消息和所选补丁集的行内评论；“提交说明”展示原始提交正文。
-4. 原生面板点击“让 Codex 审查”将固定版本的请求发送到聊天。Codex 完成审查并保存本机结果后，面板每 8 秒读取一次结果。自动刷新仅读本机文件，不发起额外模型推理或 SSH 查询。
-5. 点击发现项的文件位置跳到完整源码的真实行号。结论与补丁集 SHA 绑定，切换版本不会混用结果。
+4. 打开面板即连接插件持有的专用 Codex 会话，同一服务器账号已有会话时直接复用。点击“在面板中审查”发送固定版本的请求；回复、读取文件进度和最终结论实时显示在“审查会话”中，支持直接输入要求、继续追问和停止当前回复。不会向宿主聊天发送消息，也不在首页创建已保存的聊天。
+5. 面板每秒同步公开回复和工具进度，每 8 秒读取一次本机结构化结论。刷新本身不启动推理或 SSH 查询；只有点击审查/发送才开始模型回复，并使用当前 Codex 登录、模型配置及相应用量。
+6. 点击发现项的文件位置跳到完整源码的真实行号。结论与补丁集 SHA 绑定，切换版本不会混用结果。
 
 面板自身没有发布评论按钮；发布仍使用聊天中的预览与明确授权流程。
 
@@ -82,7 +83,22 @@ python3 plugins/gerrit-review/server.py panel
 
 命令打印本机 URL，打开即可使用；按 Ctrl-C 关闭服务。仅监听 `127.0.0.1`，未指定端口时自动选择可用端口。请求验证 Host、Origin 和页面随机令牌，不加载 CDN 或外部字体，不记录源码与请求日志。
 
-浏览器入口点击“复制审查指令”，将指令粘贴到 Codex 聊天发送。浏览器不能直接控制聊天，因此不会假装已开始模型审查。面板与 MCP 进程应使用相同的配置和数据目录；若宿主设置了 `PLUGIN_DATA` 或自定义目录，启动时将 `GERRIT_REVIEW_STATE` 指向同一目录。原生面板始终使用自己的 MCP 进程，不需要单独启动 HTTP 服务。
+浏览器入口与原生面板使用相同的专用会话及流式回复，不需要复制指令或跳转聊天。面板与 MCP 进程应使用相同的配置和数据目录；若宿主设置了 `PLUGIN_DATA` 或自定义目录，启动时将 `GERRIT_REVIEW_STATE` 指向同一目录。原生面板始终使用自己的 MCP 进程，不需要单独启动 HTTP 服务。
+
+### 会话复用与运行方式
+
+插件通过本机 `codex app-server` 创建 `ephemeral=true` 的内存会话，并由后台服务持有。关闭面板只断开视图，重开或并行打开面板会连接同一个会话，不会重复创建线程。不同服务器账号隔离；同一账号切换变更或补丁集仍可复用会话，每条审查请求单独绑定目标完整 SHA。
+
+后台服务使用私有 Unix socket（权限 0600），对话记录写在数据目录的 `panel-sessions` 中（目录 0700，文件 0600）。它不会使用 `ui/message`、创建首页聊天或把请求送到当前聊天。模型只获得提供的 Gerrit 只读工具和本机结论保存工具，禁用 shell、插件/连接器、浏览器和子代理；此专用会话没有 Gerrit 发布工具。
+
+默认从 PATH 或桌面包常见安装位置查找 `codex`；找不到时设置 `GERRIT_REVIEW_CODEX` 为可执行文件完整路径。该功能依赖本机 Codex App Server 的实验性 `dynamicTools` 接口。启动时要求确认内存会话，不支持时显示错误，不降级为创建首页聊天。
+
+系统重启或停止后台服务后，原内存线程不再存在。本机记录仍保留，下次打开会创建新的内存线程，并在第一条消息附上近期对话供继续；不会冒充仍连接原线程。手动停止专用会话服务：
+
+```sh
+python3 plugins/gerrit-review/server.py session-stop
+# 多服务器可增加 --server company
+```
 
 升级本地安装时，在市场源目录 `git pull`，再执行 `codex plugin add gerrit-review@gerrit-review-local`，重新加载客户端。插件功能与客户端文件分离，升级 Codex 不会覆盖本仓库代码。
 
@@ -91,6 +107,9 @@ python3 plugins/gerrit-review/server.py panel
 | 工具 | 功能 |
 | --- | --- |
 | `gerrit_open_panel` | 打开独立审查面板，支持空参数侧栏入口 |
+| `gerrit_review_session` | 面板连接/读取已有专用会话，仅供界面调用 |
+| `gerrit_send_review` | 在专用会话发送审查或追问，包含请求去重 |
+| `gerrit_interrupt_review` | 停止当前回复，保留会话 |
 | `gerrit_connection_status` | 检查 SSH 连接、Gerrit 版本和发布开关 |
 | `gerrit_get_change` | 读取变更、补丁集、完整 revision 和文件列表 |
 | `gerrit_get_diff` | 固定版本 diff，可按文件和 diff 文本行分页 |
@@ -119,7 +138,7 @@ python3 plugins/gerrit-review/server.py configure \
 
 ## 本地数据
 
-私有 bare Git 缓存、锁、预览草稿和审查结果保存在 `PLUGIN_DATA`；未提供时保存到 `$XDG_DATA_HOME/codex-gerrit-review`（通常是 `~/.local/share/codex-gerrit-review`）。也可用 `GERRIT_REVIEW_STATE` 指定目录。目录权限为 0700，草稿权限为 0600。
+私有 bare Git 缓存、锁、预览草稿、审查结果和面板对话记录保存在 `PLUGIN_DATA`；未提供时保存到 `$XDG_DATA_HOME/codex-gerrit-review`（通常是 `~/.local/share/codex-gerrit-review`）。也可用 `GERRIT_REVIEW_STATE` 指定目录。目录权限为 0700，草稿权限为 0600。
 
 缓存包含私有源码，草稿与审查结果包含审查正文，应按项目数据管理。它们不属于插件源代码，不应放入分发包或公共仓库。缓存按服务器、账号和项目隔离。卸载后如不再需要，可以删除这些本机数据。
 
@@ -140,7 +159,7 @@ node plugins/gerrit-review/web/test_panel.cjs
 
 `main` 提交和 Pull Request 会在 Python 3.11、3.13 上运行 Python 测试及前端行号映射检查、验证清单并构建发布包。CI 使用本地测试数据，不需要 Gerrit 凭据。
 
-在 GitHub 的 **Actions → Release → Run workflow** 中可以直接发布版本；也可推送 `v0.2.0` 这类版本标签触发。测试通过后自动上传独立插件 ZIP、市场安装 ZIP 和 SHA-256 校验文件，无需额外发布密钥。
+在 GitHub 的 **Actions → Release → Run workflow** 中可以直接发布版本；也可推送 `v0.3.0` 这类版本标签触发。测试通过后自动上传独立插件 ZIP、市场安装 ZIP 和 SHA-256 校验文件，无需额外发布密钥。
 
 版本需同时更新 `plugins/gerrit-review/plugin.json` 与 `gerrit.py` 的 `VERSION`，工作流会校验一致性。完整步骤见 [版本发布说明](docs/RELEASING.md)。下载入口为 [Releases](https://github.com/Mars-cb/gerrit-review/releases)。
 
@@ -163,6 +182,7 @@ codex plugin marketplace remove gerrit-review-local
 
 - [Gerrit SSH 查询](https://gerrit-review.googlesource.com/Documentation/cmd-query.html)
 - [Gerrit SSH 审查与 ReviewInput](https://gerrit-review.googlesource.com/Documentation/cmd-review.html)
+- [Codex App Server](https://learn.chatgpt.com/docs/app-server)
 - [MCP Apps 与独立面板入口](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md#mcp-app-entrypoints)
 - [Codex 插件打包](https://developers.openai.com/plugins/build/plugins)
 

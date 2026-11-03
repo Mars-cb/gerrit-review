@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "gerrit-review",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "独立面板浏览 Gerrit 补丁集、差异和讨论，使用现有 SSH 认证供 Codex 审查，保存本机结果并按明确授权发布已预览的评论。",
   "author": {
     "name": "Mars-cb",

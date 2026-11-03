@@ -7,12 +7,13 @@ import secrets
 
 from gerrit import GerritError, VERSION, load_config, validate_profile
 
-URI = "ui://gerrit-review/panel-v0.2.0.html"
+URI = "ui://gerrit-review/panel-v" + VERSION + ".html"
 MIME = "text/html;profile=mcp-app"
 ROOT = Path(__file__).parent / "web"
 # The browser bridge intentionally exposes no Gerrit publishing endpoint.
 HTTP_TOOLS = {"gerrit_open_panel", "gerrit_connection_status", "gerrit_get_change", "gerrit_get_diff",
-              "gerrit_get_file", "gerrit_search_code", "gerrit_get_comments", "gerrit_get_findings"}
+              "gerrit_get_file", "gerrit_search_code", "gerrit_get_comments", "gerrit_get_findings",
+              "gerrit_review_session", "gerrit_send_review", "gerrit_interrupt_review"}
 
 
 def bootstrap(change=None, server=None):
