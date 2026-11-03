@@ -356,7 +356,10 @@ class Conversation:
                 turn = params.get("turn", {})
                 self.status = turn.get("status", "failed")
                 if turn.get("error"):
-                    self.message(uuid.uuid4().hex, "error", turn["error"].get("message", "审查失败。"))
+                    detail = turn["error"].get("message", "审查失败。")
+                    if "workspace routing discovery timed out" in detail:
+                        detail = "Codex 无法连接工作区服务（连接超时），本轮没有生成审查内容。请检查网络和 Codex 登录状态，然后重试。"
+                    self.message(uuid.uuid4().hex, "error", detail)
             elif method == "panel/disconnected":
                 self.status, self.startup_error = "failed", "Codex 会话进程已退出。可重启本机会话服务后继续。"
                 self.message(uuid.uuid4().hex, "error", self.startup_error)
