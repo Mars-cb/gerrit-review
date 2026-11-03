@@ -63,6 +63,15 @@ class ConversationTests(unittest.TestCase):
         self.assertNotIn("gerrit_publish_review", names)
         self.assertNotIn("gerrit_send_review", names)
 
+    def test_desktop_proxy_used_only_when_no_explicit_proxy(self):
+        def value(args, **kwargs):
+            return {"mode": b"'manual'", "host": b"'127.0.0.1'", "port": b"16666"}[args[-1]]
+        with patch.object(session.subprocess, "check_output", side_effect=value):
+            result = session.desktop_proxy_environment({})
+            self.assertEqual(result["https_proxy"], "http://127.0.0.1:16666")
+            self.assertIn("127.0.0.1", result["no_proxy"])
+            self.assertEqual(session.desktop_proxy_environment({"HTTPS_PROXY": "http://explicit:1234"}), {"HTTPS_PROXY": "http://explicit:1234"})
+
     def test_public_deltas_before_completion_and_no_raw_reasoning(self):
         c = self.conversation
         c.send("Review fixture", "a" * 32)

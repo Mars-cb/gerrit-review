@@ -299,7 +299,7 @@
     try {
       if (browser) { $("transport").textContent = "本机独立面板 · 仅本机可访问"; initialized = true; configure(root.GERRIT_PANEL_BOOT); }
       else {
-        await rpc("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"Gerrit review panel", version:"0.3.1"}, appCapabilities:{availableDisplayModes:["inline", "fullscreen"]}});
+        await rpc("ui/initialize", {protocolVersion:"2026-01-26", appInfo:{name:"Gerrit review panel", version:"0.3.2"}, appCapabilities:{availableDisplayModes:["inline", "fullscreen"]}});
         root.parent.postMessage({jsonrpc:"2.0", method:"ui/notifications/initialized"}, hostOrigin);
         initialized = true; $("transport").textContent = "Codex 独立面板 · SSH 认证";
         configure(state.boot || await call("gerrit_open_panel"));

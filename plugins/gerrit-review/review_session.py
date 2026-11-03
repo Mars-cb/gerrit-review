@@ -4,6 +4,7 @@ A private Unix-socket worker owns one app-server thread per configured account.
 Only public assistant messages and read-tool progress are exposed to the UI.
 """
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -102,6 +103,29 @@ def codex_binary():
     raise GerritError("CODEX_MISSING", "找不到 Codex 可执行文件。请设置 GERRIT_REVIEW_CODEX 为完整路径。")
 
 
+def desktop_proxy_environment(environment):
+    """Inherit explicit settings; otherwise use the Linux desktop manual proxy."""
+    result = dict(environment)
+    if any(result.get(key) for key in ("https_proxy", "HTTPS_PROXY", "all_proxy", "ALL_PROXY")):
+        return result
+    def setting(schema, key):
+        return subprocess.check_output(["gsettings", "get", schema, key], stderr=subprocess.DEVNULL, timeout=3).decode().strip()
+    try:
+        if ast.literal_eval(setting("org.gnome.system.proxy", "mode")) != "manual":
+            return result
+        for scheme in ("http", "https"):
+            if result.get(scheme + "_proxy") or result.get(scheme.upper() + "_PROXY"):
+                continue
+            schema = "org.gnome.system.proxy." + scheme
+            host, port = ast.literal_eval(setting(schema, "host")), int(setting(schema, "port"))
+            if isinstance(host, str) and host and not any(c in host for c in "/@?# ") and 1 <= port <= 65535:
+                result[scheme + "_proxy"] = "http://{}:{}".format(host, port)
+        result.setdefault("no_proxy", "localhost,127.0.0.1,::1")
+    except (OSError, ValueError, SyntaxError, subprocess.SubprocessError):
+        pass
+    return result
+
+
 class AppServer:
     def __init__(self, notify, tool_call):
         self.notify, self.tool_call = notify, tool_call
@@ -112,7 +136,7 @@ class AppServer:
                         "features.unified_exec=false", "features.multi_agent=false", "features.browser_use=false",
                         "features.image_generation=false", "features.hooks=false", 'web_search="disabled"']:
             command += ["-c", setting]
-        environment = dict(os.environ)
+        environment = desktop_proxy_environment(os.environ)
         for key in ("CODEX_THREAD_ID", "CODEX_TURN_ID"):
             environment.pop(key, None)
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
