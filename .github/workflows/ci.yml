@@ -27,6 +27,10 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Run tests with local fixtures
         run: python -m unittest discover -s plugins/gerrit-review -p 'test_*.py'
+      - name: Check panel JavaScript and source line mapping
+        run: |
+          node --check plugins/gerrit-review/web/panel.js
+          node plugins/gerrit-review/web/test_panel.cjs
       - name: Validate manifests and build release packages
         run: python scripts/package_release.py
       - name: Verify package checksums

@@ -256,7 +256,7 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = [json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(len(rows), 4)
-        self.assertEqual(len(rows[1]["result"]["tools"]), 8)
+        self.assertEqual(len(rows[1]["result"]["tools"]), 11)
         self.assertTrue(rows[2]["result"]["isError"])
         self.assertEqual(rows[3]["error"]["code"], -32602)
 

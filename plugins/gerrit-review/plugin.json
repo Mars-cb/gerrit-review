@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "gerrit-review",
-  "version": "0.1.0",
-  "description": "使用现有 SSH 认证读取 Gerrit 补丁集和完整代码上下文，供 Codex 审查，并按明确授权发布已预览的评论。",
+  "version": "0.2.0",
+  "description": "独立面板浏览 Gerrit 补丁集、差异和讨论，使用现有 SSH 认证供 Codex 审查，保存本机结果并按明确授权发布已预览的评论。",
   "author": {
     "name": "Mars-cb",
     "url": "https://github.com/Mars-cb"
@@ -27,6 +27,7 @@
         "composerIcon": "./assets/icon.svg",
         "logo": "./assets/icon.svg",
         "defaultPrompt": [
+          "打开 Gerrit 独立审查面板",
           "审查这条 Gerrit 变更：",
           "查看这条 Gerrit 变更的最新补丁集和已有评论"
         ],

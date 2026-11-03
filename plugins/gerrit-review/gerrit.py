@@ -14,7 +14,7 @@ import time
 from urllib.parse import urlsplit, quote
 import uuid
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 

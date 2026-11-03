@@ -2,7 +2,7 @@
 
 为 Codex 增加独立的 Gerrit 审查工作流：粘贴变更链接即可读取补丁集、差异和完整代码上下文，交由 Codex 分析。使用本机现有 SSH 密钥，不保存密码。
 
-本插件以工具与审查技能的形式运行，审查结论显示在聊天中；不修改客户端，也不向内置 GitHub/GitLab 列表注入提供商。
+插件提供独立审查面板、工具与审查技能。面板支持补丁集切换、文件筛选、带源码行号的 diff、完整新/旧文件、已有讨论和本机审查结果；不修改 Codex 客户端。
 
 ## 依赖与安装
 
@@ -59,16 +59,46 @@ python3 plugins/gerrit-review/server.py call gerrit_connection_status
 python3 plugins/gerrit-review/server.py call gerrit_get_change --args '{"change":"12345"}'
 ```
 
+## 独立面板
+
+更新插件后重新加载客户端，在支持 MCP Apps Extensions 的 Codex 中可从侧栏或聊天内容标签打开 **Gerrit 审查面板**。也可以在聊天中输入“打开 Gerrit 独立审查面板”，让 Codex 调用 `gerrit_open_panel`。
+
+1. 选择已配置的服务器，输入变更链接或编号，点击“载入变更”。
+2. 切换补丁集、筛选文件；在“差异”和“完整文件”之间切换。完整文件支持补丁版本与父版本，删除文件可选父版本。
+3. “已有讨论”读取 Gerrit 历史消息和所选补丁集的行内评论；“提交说明”展示原始提交正文。
+4. 原生面板点击“让 Codex 审查”将固定版本的请求发送到聊天。Codex 完成审查并保存本机结果后，面板每 8 秒读取一次结果。自动刷新仅读本机文件，不发起额外模型推理或 SSH 查询。
+5. 点击发现项的文件位置跳到完整源码的真实行号。结论与补丁集 SHA 绑定，切换版本不会混用结果。
+
+面板自身没有发布评论按钮；发布仍使用聊天中的预览与明确授权流程。
+
+### 本机浏览器入口
+
+客户端尚未显示原生入口时，可直接使用同一套独立面板：
+
+```sh
+python3 plugins/gerrit-review/server.py panel
+# 可选：--port 8765 --change https://gerrit.example.com/c/project/+/12345
+```
+
+命令打印本机 URL，打开即可使用；按 Ctrl-C 关闭服务。仅监听 `127.0.0.1`，未指定端口时自动选择可用端口。请求验证 Host、Origin 和页面随机令牌，不加载 CDN 或外部字体，不记录源码与请求日志。
+
+浏览器入口点击“复制审查指令”，将指令粘贴到 Codex 聊天发送。浏览器不能直接控制聊天，因此不会假装已开始模型审查。面板与 MCP 进程应使用相同的配置和数据目录；若宿主设置了 `PLUGIN_DATA` 或自定义目录，启动时将 `GERRIT_REVIEW_STATE` 指向同一目录。原生面板始终使用自己的 MCP 进程，不需要单独启动 HTTP 服务。
+
+升级本地安装时，在市场源目录 `git pull`，再执行 `codex plugin add gerrit-review@gerrit-review-local`，重新加载客户端。插件功能与客户端文件分离，升级 Codex 不会覆盖本仓库代码。
+
 ## 工具
 
 | 工具 | 功能 |
 | --- | --- |
+| `gerrit_open_panel` | 打开独立审查面板，支持空参数侧栏入口 |
 | `gerrit_connection_status` | 检查 SSH 连接、Gerrit 版本和发布开关 |
 | `gerrit_get_change` | 读取变更、补丁集、完整 revision 和文件列表 |
 | `gerrit_get_diff` | 固定版本 diff，可按文件和 diff 文本行分页 |
 | `gerrit_get_file` | 读取新/旧版本代码，返回真实源码行号 |
 | `gerrit_search_code` | 在同一提交的整个仓库搜索调用者或测试 |
 | `gerrit_get_comments` | 分页读取历史审查消息和对应补丁集的行内评论 |
+| `gerrit_get_findings` | 读取固定版本的本机审查结果，无 SSH 请求 |
+| `gerrit_save_findings` | Codex 审查后保存本机结果，不发布评论 |
 | `gerrit_prepare_review` | 校验行号并保存本地预览，返回草稿 ID 和摘要 |
 | `gerrit_publish_review` | 仅发布已预览且获明确授权的草稿 |
 
@@ -89,9 +119,9 @@ python3 plugins/gerrit-review/server.py configure \
 
 ## 本地数据
 
-私有 bare Git 缓存、锁和预览草稿保存在 `PLUGIN_DATA`；未提供时保存到 `$XDG_DATA_HOME/codex-gerrit-review`（通常是 `~/.local/share/codex-gerrit-review`）。也可用 `GERRIT_REVIEW_STATE` 指定目录。目录权限为 0700，草稿权限为 0600。
+私有 bare Git 缓存、锁、预览草稿和审查结果保存在 `PLUGIN_DATA`；未提供时保存到 `$XDG_DATA_HOME/codex-gerrit-review`（通常是 `~/.local/share/codex-gerrit-review`）。也可用 `GERRIT_REVIEW_STATE` 指定目录。目录权限为 0700，草稿权限为 0600。
 
-缓存包含私有源码，草稿包含审查正文，应按项目数据管理。它们不属于插件源代码，不应放入分发包或公共仓库。缓存按服务器、账号和项目隔离。卸载后如不再需要，可以删除这些本机数据。
+缓存包含私有源码，草稿与审查结果包含审查正文，应按项目数据管理。它们不属于插件源代码，不应放入分发包或公共仓库。缓存按服务器、账号和项目隔离。卸载后如不再需要，可以删除这些本机数据。
 
 插件不运行仓库代码，也不修改用户工作树。Git 外部 diff/textconv 和 hooks 被禁用，Git 文件路径按字面量处理。工具不输出私钥、密码或 SSH 环境。
 
@@ -101,15 +131,16 @@ python3 plugins/gerrit-review/server.py configure \
 
 ```sh
 python3 -m unittest discover -s plugins/gerrit-review -p 'test_*.py'
+node plugins/gerrit-review/web/test_panel.cjs
 ```
 
 单元测试使用本地临时仓库和模拟 Gerrit，不需要账号，不向真实服务器写评论。真实环境的只读连接、固定版本 diff 和文件读取另行验证。
 
 ## Actions 与 Release
 
-`main` 提交和 Pull Request 会在 Python 3.11、3.13 上运行测试、验证清单并构建发布包。CI 使用本地测试数据，不需要 Gerrit 凭据。
+`main` 提交和 Pull Request 会在 Python 3.11、3.13 上运行 Python 测试及前端行号映射检查、验证清单并构建发布包。CI 使用本地测试数据，不需要 Gerrit 凭据。
 
-在 GitHub 的 **Actions → Release → Run workflow** 中可以直接发布版本；也可推送 `v0.1.0` 这类版本标签触发。测试通过后自动上传独立插件 ZIP、市场安装 ZIP 和 SHA-256 校验文件，无需额外发布密钥。
+在 GitHub 的 **Actions → Release → Run workflow** 中可以直接发布版本；也可推送 `v0.2.0` 这类版本标签触发。测试通过后自动上传独立插件 ZIP、市场安装 ZIP 和 SHA-256 校验文件，无需额外发布密钥。
 
 版本需同时更新 `plugins/gerrit-review/plugin.json` 与 `gerrit.py` 的 `VERSION`，工作流会校验一致性。完整步骤见 [版本发布说明](docs/RELEASING.md)。下载入口为 [Releases](https://github.com/Mars-cb/gerrit-review/releases)。
 
@@ -132,6 +163,7 @@ codex plugin marketplace remove gerrit-review-local
 
 - [Gerrit SSH 查询](https://gerrit-review.googlesource.com/Documentation/cmd-query.html)
 - [Gerrit SSH 审查与 ReviewInput](https://gerrit-review.googlesource.com/Documentation/cmd-review.html)
+- [MCP Apps 与独立面板入口](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md#mcp-app-entrypoints)
 - [Codex 插件打包](https://developers.openai.com/plugins/build/plugins)
 
 本地插件包采用 MIT 许可证。这个本机插件没有提交至官方公开目录。

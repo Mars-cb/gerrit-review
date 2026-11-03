@@ -5,7 +5,15 @@ description: Review a Gerrit change or patch-set URL using its pinned commit, fu
 
 # Gerrit code review
 
-Use the tools bundled with this plugin for Gerrit links and change numbers. This is an independent review workflow; it does not add a repository provider to the built-in GitHub/GitLab Code Review screen.
+Use the tools bundled with this plugin for Gerrit links and change numbers. This is an independent review workflow with its own MCP App panel; it does not add a repository provider to the built-in GitHub/GitLab Code Review screen.
+
+## Independent panel
+
+When the user asks to open the Gerrit panel, call `gerrit_open_panel`. It accepts empty arguments; optionally pass a change link and configured server name. Its MCP App provides global and thread entrypoints, patch-set selection, file diffs, source, existing discussion and local findings.
+
+When a review is requested from the panel, honor its exact server, change and full revision. After giving findings in chat, call `gerrit_save_findings` with the same target, a summary including verification limits, and verified findings (`priority` 0–3, `title`, relative `path`, real `line`, `description`, optional `side=REVISION|PARENT`). Use an empty findings array when no actionable issues were found. The panel polls this private local result; saving it does not publish to Gerrit. Never invent findings to populate the panel. Saving an older patch set is allowed and remains bound to that revision.
+
+The optional loopback browser panel uses the same interface and copies a review instruction for the user to send in Codex. It does not start a second model or expose a Gerrit write endpoint. If the host does not display the native entrypoint, explain the browser fallback documented in README.
 
 ## Read and review
 

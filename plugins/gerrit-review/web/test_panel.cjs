@@ -1,0 +1,23 @@
+"use strict";
+const assert = require("node:assert/strict");
+const {parseDiff, reviewPrompt} = require("./panel.js");
+const diff = ["diff --git a/a b/a", "--- a/a", "+++ b/a", "@@ -2,2 +2,3 @@ fn", " same", "-old", "+new", "+extra", "\\ No newline at end of file"].join("\n");
+const rows = parseDiff(diff);
+assert.equal(rows[2].kind, "meta", "+++ header is not an added source line");
+assert.deepEqual(rows[4], {kind:"context", oldLine:2, newLine:2, sign:" ", text:"same"});
+assert.equal(rows[5].oldLine, 3);
+assert.equal(rows[6].newLine, 3);
+assert.equal(rows[7].newLine, 4);
+assert.equal(rows[8].kind, "meta");
+assert.equal(parseDiff("@@ -0,0 +1,2 @@\n+<script>\n+")[2].newLine, 2);
+assert.equal(parseDiff("@@ -9,1 +8,0 @@\n-gone")[1].oldLine, 9);
+// Pagination is joined with a newline, preserving the preceding hunk's counters.
+const lines = diff.split("\n");
+const paged = parseDiff(lines.slice(0, 6).join("\n") + "\n" + lines.slice(6).join("\n"));
+assert.equal(paged[6].newLine, 3, "A page beginning mid-hunk keeps the source line counter");
+assert.equal(paged[7].newLine, 4);
+const prompt = reviewPrompt({url:"https://review.example.com/c/x/+/123/2", revision:"a".repeat(40), patchset:2, baseRevision:"b".repeat(40), change:123}, "test");
+assert.ok(prompt.includes("a".repeat(40)));
+assert.ok(prompt.includes("gerrit_save_findings"));
+assert.ok(prompt.includes("不要向 Gerrit 发布评论"));
+console.log("Panel diff/source locations and pinned review prompt passed.");
